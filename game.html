@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy"
+    content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; media-src 'self'; connect-src 'self'; worker-src 'self' blob:; object-src 'none'; base-uri 'self';">
+  <title>SpotSafe 360 - the goods-in bay</title>
+  <link rel="icon" href="img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+  <script src="js/boot.js"></script>
+  <!-- A-Frame 1.6.0 vendored, pinned with SRI. The version query defeats any
+       poisoned cache entry. The engine needs 'unsafe-eval' in the CSP above:
+       it compiles small code strings internally at startup. -->
+  <script src="vendor/aframe.min.js?v=1.0.0"></script>
+</head>
+
+<body>
+
+  <!-- Engine failure banner with self-diagnosis -->
+  <div id="engineFail" class="overlay hidden">
+    <div class="panel fail">
+      <h2>The 3D engine did not start</h2>
+      <p id="failWhy">Checking why...</p>
+      <p class="row center"><button class="btn-primary" id="btnRetry">Try again</button></p>
+      <p class="fine center">Tip: hold Shift and press the browser reload button to skip the cache.</p>
+    </div>
+  </div>
+
+  <!-- The scene: static shell only. The bay and every hazard are built from
+       js/hazards.js data by js/app.js, so content changes are data edits. -->
+  <a-scene id="scene" background="color:#0B1622" loading-screen="enabled:false" vr-mode-ui="enabled: false">
+    <a-assets>
+      <img id="texFloor" src="img/tex_floor.jpg" alt="">
+      <img id="texWall" src="img/tex_wall.jpg" alt="">
+    </a-assets>
+    <a-light type="ambient" intensity="0.55" color="#FFFFFF"></a-light>
+    <a-light type="directional" intensity="0.85" position="6 12 4" color="#FFF6D8"></a-light>
+    <a-entity id="room"></a-entity>
+    <a-entity id="props"></a-entity>
+    <a-entity id="hotspots"></a-entity>
+    <a-entity id="debugLayer"></a-entity>
+    <a-camera id="cam" position="0 1.6 9" fov="75" near="0.05" far="120" look-controls wasd-controls="acceleration:28"
+      cursor="rayOrigin: mouse"></a-camera>
+  </a-scene>
+
+  <!-- Centre reticle: the aim for the E flag -->
+  <div id="reticle" class="hidden" aria-hidden="true"></div>
+
+  <!-- Where list mode dropped you: spoken by screen readers as it appears -->
+  <div id="locate" class="hidden" role="status" aria-live="polite">
+    <b id="locateWhere"></b>
+    <span id="locateTip"></span>
+  </div>
+
+  <!-- HUD: icons and numbers only -->
+  <div id="hud" class="hidden">
+    <div class="hud-left">
+      <span class="hud-stat" title="Score"><span class="ico" id="icoScore"></span><b id="hudScore">0</b></span>
+      <span class="hud-stat" title="Streak"><span class="ico" id="icoStreak"></span><b id="hudStreak">0</b></span>
+      <span class="hud-stat" title="Hazards found"><span class="ico" id="icoFound"></span><b id="hudFound">0 /
+          9</b></span>
+      <span class="hud-stat hidden" id="timeStat" title="Time left"><span class="ico" id="icoTime"></span><b
+          id="hudTime">1:30</b></span>
+    </div>
+    <div class="hud-right">
+      <button class="hud-btn" id="btnList" title="List mode" aria-label="List mode"></button>
+      <button class="hud-btn" id="btnVR" title="Enter VR" aria-label="Enter VR"></button>
+      <button class="hud-btn" id="btnPause" title="Pause" aria-label="Pause"></button>
+      <button class="hud-btn" id="btnMute" title="Sound" aria-label="Sound"></button>
+    </div>
+  </div>
+
+  <!-- Feedback card: icon, one line, more on tap -->
+  <div id="card" class="hidden" role="status" aria-live="polite">
+    <div class="card-row">
+      <span class="card-ico" id="cardIco"></span>
+      <div class="card-main">
+        <h3 id="cardTitle"></h3>
+        <p class="card-line" id="cardWhat"></p>
+        <div class="card-more hidden" id="cardMore">
+          <p class="card-line"><b id="uiWhy">Why:</b> <span id="cardWhy"></span></p>
+          <p class="card-line"><b id="uiControl">Control:</b> <span id="cardControl"></span></p>
+        </div>
+      </div>
+      <button class="card-expand" id="btnExpand" aria-label="More"></button>
+    </div>
+    <div class="card-bar" id="cardBar"></div>
+  </div>
+
+  <!-- Pause panel (Phase 4): Esc or the pause button -->
+  <div id="pause" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Paused">
+    <div class="panel">
+      <h2 id="pauseTitle">Paused</h2>
+      <p class="row center" id="pauseInfo"></p>
+      <div class="panel-col">
+        <button class="btn-primary" id="btnResume">Resume</button>
+        <button class="btn-quiet" id="btnRestart">Restart round</button>
+        <button class="btn-quiet" id="btnMenu">Main menu</button>
+      </div>
+      <p class="fine center" id="pauseFine">Press Esc to resume.</p>
+    </div>
+  </div>
+
+  <!-- Quick-check quiz (A7): a few questions between the round and the review.
+       Questions come from the QUIZ pool in js/hazards.js, so adding or rewording
+       a question is a data edit, never a code edit. -->
+  <div id="quiz" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Quick check">
+    <div class="panel panel-scroll">
+      <h2 id="quizTitle">Quick check</h2>
+      <p class="fine" id="quizIntro"></p>
+      <p class="quiz-progress" id="quizProgress"></p>
+      <h3 class="quiz-ask" id="quizAsk"></h3>
+      <div class="quiz-options" id="quizOptions" role="group" aria-labelledby="quizAsk"></div>
+      <div class="quiz-feedback hidden" id="quizFeedback" role="status" aria-live="polite">
+        <b id="quizVerdict"></b> <span id="quizBecause"></span>
+      </div>
+      <p class="row center"><button class="btn-primary hidden" id="btnQuizNext"></button></p>
+    </div>
+  </div>
+
+  <!-- Round end panel (Phase 5): full review - stats, minimap, reaction chips -->
+  <div id="roundEnd" class="overlay hidden" role="dialog" aria-modal="true" aria-label="Round over">
+    <div class="panel panel-scroll">
+      <h2 id="endTitle">Time up</h2>
+      <div class="end-stats" id="endStats"></div>
+      <h3 class="review-title" id="endMapTitle">Where everything was</h3>
+      <div id="endMap"></div>
+      <h3 class="review-title" id="endChipsTitle">Your finds</h3>
+      <div class="chips" id="endChips"></div>
+      <div class="panel-col">
+        <button class="btn-primary" id="btnAgain">Replay round</button>
+        <button class="btn-quiet" id="btnEndMenu">Main menu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- List mode (Phase 5): the bay in words, keyboard and screen-reader route -->
+  <div id="listMode" class="overlay hidden" role="dialog" aria-modal="true" aria-label="List mode">
+    <div class="panel panel-scroll">
+      <h2 id="listTitle">List mode</h2>
+      <ul class="list-items" id="listItems"></ul>
+      <p class="row center"><button class="btn-primary" id="btnListClose">Back to the bay</button></p>
+      <p class="fine center" id="listFine">Close with Esc. Taking you to a place walks you over and turns you to face it. Flagging still happens in the bay, with a click or the E key.</p>
+    </div>
+  </div>
+
+  <!-- VR fallback card (Phase 5): explains itself when no headset is present -->
+  <div id="vrCard" class="overlay hidden" role="dialog" aria-modal="true" aria-label="VR mode">
+    <div class="panel">
+      <h2 id="vrTitle">VR mode</h2>
+      <p class="card-line" id="vrBody"></p>
+      <p class="row center"><button class="btn-primary" id="btnVrClose">Close</button></p>
+    </div>
+  </div>
+
+  <div id="phaseTag">Loading the bay...</div>
+
+  <script src="js/hazards.js"></script>
+  <script src="js/app.js"></script>
+</body>
+
+</html>

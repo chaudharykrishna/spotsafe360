@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0A1524">
+  <!-- Deliberately stricter than game.html: the portal is pure DOM, it never
+       loads the 3D engine, so it needs no 'unsafe-eval'. Even with the engine
+       file renamed away, this page must keep working (Phase 4 gate). -->
+  <meta http-equiv="Content-Security-Policy"
+        content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; object-src 'none'; base-uri 'self';">
+  <title>SpotSafe 360 - hazard perception training</title>
+  <link rel="icon" href="img/logo.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="portal">
+
+  <!-- Blueprint grid behind everything. Decorative only. -->
+  <div class="bg-grid" aria-hidden="true"></div>
+
+  <div class="portal-wrap">
+
+    <header class="topbar">
+      <div class="logo">
+        <img class="logo-mark" src="img/logo.svg" width="34" height="39" alt="" aria-hidden="true">
+        <span>SpotSafe 360</span>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-note">Hazard perception training</span>
+        <button class="btn-quiet" id="btnHowTo">How to play</button>
+      </div>
+    </header>
+
+    <main>
+
+      <!-- Hero -->
+      <section class="hero">
+        <h1>See the hazard before<br><em>it sees you.</em></h1>
+        <p class="tagline" id="tagline">Spot the hazard. Learn the fix. Keep the bay safe.</p>
+      </section>
+
+      <!-- Setup: avatar, name, mode, difficulty, start -->
+      <section class="setup" aria-label="Game setup">
+
+        <div class="field field-avatars">
+          <span class="field-label" id="avatarLabel">Pick an avatar</span>
+          <div class="avatar-row" id="avatarRow" role="group" aria-labelledby="avatarLabel"></div>
+        </div>
+
+        <div class="setup-row">
+          <div class="field">
+            <label for="nameInput" id="nameLabel">Your name</label>
+            <input id="nameInput" type="text" maxlength="16" placeholder="Enter your name..." autocomplete="off">
+          </div>
+
+          <div class="field">
+            <span class="field-label" id="modeTitle">Choose a mode</span>
+            <div class="mode-row" id="modeRow" role="group" aria-labelledby="modeTitle"></div>
+          </div>
+
+          <div class="field">
+            <span class="field-label" id="diffTitle">Choose a difficulty</span>
+            <div class="diff-row" id="diffRow" role="group" aria-labelledby="diffTitle"></div>
+          </div>
+        </div>
+
+        <div class="start-row">
+          <button class="btn-primary btn-big" id="btnStart">Start Game</button>
+          <p class="start-hint" id="startHint"></p>
+        </div>
+
+      </section>
+
+      <!-- Local leaderboard -->
+      <section class="board-strip" aria-label="Leaderboard">
+        <h2 class="side-title">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M7 6H4a3 3 0 0 0 3 3M17 6h3a3 3 0 0 1-3 3"/>
+          </svg>
+          <span id="leaderTitle">Leaderboard</span>
+        </h2>
+        <div id="boardBox"></div>
+      </section>
+
+    </main>
+
+    <footer class="portal-foot">
+      <p class="privacy" id="privacyLine">
+        Runs entirely in your browser. Scores stay on this device in local storage.
+        No accounts, no tracking, nothing is uploaded.
+      </p>
+      <p class="credit">A Multiply enterprise project &middot; UK HSE hazard content</p>
+    </footer>
+
+  </div>
+
+  <!-- How to play overlay -->
+  <div id="howto" class="overlay hidden" role="dialog" aria-modal="true" aria-label="How to play">
+    <div class="panel">
+      <h2 id="howToTitle">How to play</h2>
+      <ul class="howto-list" id="howToList"></ul>
+      <p class="row center"><button class="btn-primary" id="btnHowClose">Got it</button></p>
+    </div>
+  </div>
+
+  <!-- Data first (shared with the game), then portal logic. No engine here. -->
+  <script src="js/hazards.js"></script>
+  <script src="js/portal.js"></script>
+</body>
+</html>
